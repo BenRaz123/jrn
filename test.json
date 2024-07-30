@@ -1,6 +1,0 @@
-[
-    {"date": {"year": 2023, "month": 1, "day": 1}, "content": "first `jrn` entry"},
-    {"date": {"year": 2024, "month": 1, "day": 1}, "content": "second `jrn` entry"},
-    {"date": {"year": 2024, "month": 2, "day": 1}, "content": "third `jrn` entry"},
-    {"date": {"year": 2024, "month": 2, "day": 2}, "content": "fourth `jrn` entry"}
-]

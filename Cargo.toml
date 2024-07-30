@@ -6,7 +6,18 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+aes-gcm-siv = "0.11.1"
 argh = "0.1.12"
+base64 = "0.22.1"
+bcrypt = "0.15.1"
+chrono = "0.4.38"
+color-print = "0.3.6"
+enum-display = "0.1.4"
+enum-utils = "0.1.2"
+hex = "0.4.3"
+pbkdf2 = "0.12.2"
+rand = "0.8.5"
 requestty = { version = "0.5.0", features = ["macro"] }
 serde = { version = "1.0.199", features = ["derive"] }
 serde_json = "1.0.116"
+sha2 = "0.10.8"
