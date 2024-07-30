@@ -163,7 +163,6 @@ impl Encryptor for Secure {
         bcrypt::verify(entered_password, hashed_password).unwrap()
     }
     fn gen_key<'a>(&self, password: &'a str, kdf_salt: [u8; 32]) -> [u8; 32] {
-        println!(":: Gen Key...");
         let mut key: [u8; 32] = [0u8; 32];
         pbkdf2_hmac::<Sha256>(
             password.as_bytes(),
