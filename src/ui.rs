@@ -136,10 +136,10 @@ pub fn should_loop(config: &Config, subcommand: &Option<SubCommand>) -> bool {
         }
     }
     if subcommand.is_some() {
-        return true;
+        return false;
     }
 
-    false
+    true
 }
 
 pub fn app(config: &Config, subcommand: Option<SubCommand>, state: &mut State) -> AppResult {
