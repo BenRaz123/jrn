@@ -211,7 +211,6 @@ impl State {
         if json.is_err() {
             return Err(LoadError::NotAccessible);
         }
-
         let json = String::from_utf8(json.unwrap()).unwrap();
 
         let stored_journal = serde_json::from_str::<StoredJournal>(&json);

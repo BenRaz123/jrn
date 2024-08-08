@@ -167,7 +167,7 @@ impl Encryptor for Secure {
         pbkdf2_hmac::<Sha256>(
             password.as_bytes(),
             &kdf_salt,
-            300_000,
+            100_000,
             &mut key,
         );
         key

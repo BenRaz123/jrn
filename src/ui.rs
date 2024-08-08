@@ -1,16 +1,14 @@
 use std::{
     collections::HashSet,
-    fmt::{Debug, Display},
+    fmt::{write, Debug, Display},
     path::Path,
-    process::exit,
     str::FromStr,
 };
 
 use crate::{
-    date::Date,
-    db::{LoadError, State},
-    encryptor::Encryptor,
-    fail,
+    cli::{
+        Arguments, ChangePassword, Edit, EditToday, SubCommand, View,
+    }, config::Config, date::Date, db::{LoadError, State}, encryptor::Encryptor, fail
 };
 
 use enum_display::EnumDisplay;
@@ -29,7 +27,7 @@ pub enum AppResult {
 #[derive(EnumDisplay, Debug, FromStr, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[enum_display(case = "Title")]
 #[enumeration(rename_all = "PascalCase")]
-enum PathWay {
+pub enum PathWay {
     #[enumeration(rename = "Change Password")]
     ChangePassword,
     List,
@@ -41,16 +39,69 @@ enum PathWay {
     EditToday,
     Quit,
 }
+
+#[derive(Debug, EnumDisplay)]
+pub enum SubCommandFromPathWayError {
+    QuitVariantWasUsed,
+}
+
+impl TryFrom<PathWay> for SubCommand {
+    type Error = SubCommandFromPathWayError;
+    fn try_from(value: PathWay) -> Result<Self, Self::Error> {
+        use PathWay as PW;
+        use SubCommand as SC;
+        match value {
+            PW::ChangePassword => Ok(SC::ChangePassword(Default::default())),
+            PW::List => Ok(SC::List(Default::default())),
+            PW::View => Ok(SC::View(Default::default())),
+            PW::Edit => Ok(SC::Edit(Default::default())),
+            PW::ViewToday => Ok(SC::ViewToday(Default::default())),
+            PW::EditToday => Ok(SC::EditToday(Default::default())),
+            PW::Quit => Err(SubCommandFromPathWayError::QuitVariantWasUsed),
+        }
+    }
+}
 /// hello
-pub fn init<E: Encryptor>(jrn_path: &str, e: &E) -> State {
+pub fn init<E: Encryptor>(config: &Config, e: &E) -> State {
+    let config = config.clone();
+    let jrn_path = config.file_path.as_deref().unwrap_or("./jrn.json");
     let mut state = State::new();
     if !Path::new(jrn_path).exists() {
-        let pass = get_new_password();
+        let pass = match (config.password, config.password_file) {
+            (None, None) => get_new_password(),
+            (Some(password), None) => password,
+            (None, Some(password_file)) => {
+                let password = std::fs::read_to_string(&password_file);
+                if let Err(e) = password {
+                    fail!("couldn't read password from file {password_file}: {e:?}");
+                }
+                password.unwrap().trim().into()
+            }
+            (Some(_), Some(_)) => {
+                fail!("can't give both password string and password file");
+            }
+        };
         state.change_password(&pass);
         return state;
     }
 
-    let mut pass = password("Please enter password");
+    let mut pass = match (config.password, config.password_file) {
+        (None, None) => password("Please enter your password"),
+        (Some(password), None) => password,
+        (None, Some(password_file)) => {
+            let password = std::fs::read_to_string(&password_file);
+            if let Err(e) = password {
+                fail!(
+                    "couldn't read password from file {password_file}: {e:?}"
+                );
+            }
+            password.unwrap().trim().into()
+        }
+        (Some(_), Some(_)) => {
+            fail!("can't give both password string and password file");
+        }
+    };
+
     let mut loaded = state.load(jrn_path, &pass, e);
 
     if let Err(LoadError::IncorrectPassword) = loaded {
@@ -72,20 +123,53 @@ pub fn init<E: Encryptor>(jrn_path: &str, e: &E) -> State {
     state
 }
 
-pub fn app_loop(state: &mut State) -> AppResult {
-    let mut ret = AppResult::DidntChangeState;
-    loop {
-        let ar = app(state);
-        match ar {
-            AppResult::ChangedState => { ret = AppResult::ChangedState; },
-            AppResult::Quit => { break; },
-            _ => { continue; }
+pub fn should_loop(config: &Config, subcommand: &Option<SubCommand>) -> bool {
+    let config = config.clone();
+    if let Some(do_loop) = config.do_loop {
+        if do_loop {
+            return true;
         }
     }
-    ret
+    if let Some(dont_loop) = config.dont_loop {
+        if dont_loop {
+            return false;
+        }
+    }
+    if subcommand.is_some() {
+        return true;
+    }
+
+    false
 }
 
-pub fn app(state: &mut State) -> AppResult {
+pub fn app(config: &Config, subcommand: Option<SubCommand>, state: &mut State) -> AppResult {
+    let should_loop = should_loop(config, &subcommand);
+    if should_loop {
+        let config = config.clone();
+        let mut subcommand = subcommand.clone();
+        let mut ret = AppResult::DidntChangeState;
+        loop {
+            let ar = _app(&config, subcommand, state);
+            subcommand = None;
+            match ar {
+                AppResult::ChangedState => {
+                    ret = AppResult::ChangedState;
+                }
+                AppResult::Quit => {
+                    break;
+                }
+                _ => {
+                    continue;
+                }
+            }
+        }
+        ret
+    } else {
+        return _app(config, subcommand, state);
+    }
+}
+
+pub fn prompt_pathway() -> PathWay {
     let pathways: HashSet<PathWay> = HashSet::from([
         PathWay::ChangePassword,
         PathWay::List,
@@ -95,27 +179,72 @@ pub fn app(state: &mut State) -> AppResult {
         PathWay::EditToday,
         PathWay::Quit,
     ]);
-    let pathway = choose(pathways, "Welcome to jrn. Please choose a course of action");
 
-    match pathway {
-        PathWay::ChangePassword => change_password(state),
-        PathWay::List => list_entries(&state),
-        PathWay::View => view_entries(&state),
-        PathWay::Edit => edit_entry(state),
-        PathWay::ViewToday => view_today(&state),
-        PathWay::EditToday => edit_today(state),
-        PathWay::Quit => AppResult::Quit,
+    let pathway =
+        choose(pathways, "Welcome to jrn. Please choose a course of action");
+
+    pathway
+}
+
+fn _app(config: &Config, subcommand: Option<SubCommand>, state: &mut State) -> AppResult {
+    use SubCommand as SC;
+
+    let subcommand = match &subcommand {
+        None => {
+            let pw = prompt_pathway();
+            let subcommand = SubCommand::try_from(pw);
+            if subcommand.is_err() {
+                return AppResult::Quit;
+            }
+            subcommand.unwrap()
+        }
+        Some(subcommand) => subcommand.clone(),
+    };
+
+    match subcommand {
+        SC::ChangePassword(opts) => change_password(&opts, state),
+        SC::List(_) => list_entries(&state),
+        SC::View(opts) => view_entries(&opts, &state),
+        SC::Edit(opts) => edit_entry(config, &opts, state),
+        SC::ViewToday(_) => view_today(&state),
+        SC::EditToday(opts) => edit_today(config, &opts, state),
     }
 }
 
-fn edit_today(state: &mut State) -> AppResult {
-    let content = state.get_today();
-    let new_content = edit(content.as_deref(), ".org", "Press <Enter> to edit");
+pub fn edit_today(config: &Config, opts: &EditToday, state: &mut State) -> AppResult {
+    let opts = opts.clone();
+    let config = config.clone();
 
-    state.set_today(&new_content);
+    if opts.content.is_some() && opts.content_path.is_some() {
+        fail!("can't give both content string and content path");
+    }
 
-    if content.is_some() {
-        if content.unwrap() == new_content {
+    let content = match (opts.content, opts.content_path) {
+        (None, None) => {
+            let content = state.get_today();
+            let new_content =
+                edit(content.as_deref(), &config.file_type.unwrap_or(".md".into()), "Press <Enter> to edit");
+            println!("{new_content}");
+            new_content
+        }
+        (Some(content), None) => content,
+        (None, Some(content_path)) => {
+            let content = std::fs::read_to_string(&content_path);
+            if let Err(e) = content {
+                fail!("couldn't read content from file {content_path}: {e:?}");
+            }
+            content.unwrap()
+        }
+        (Some(_), Some(_)) => {
+            fail!("can't give both content string and content path");
+        }
+    };
+
+    let old_content = state.get_today();
+    state.set_today(&content);
+
+    if old_content.is_some() {
+        if old_content.unwrap() == content {
             return AppResult::DidntChangeState;
         }
     }
@@ -123,37 +252,79 @@ fn edit_today(state: &mut State) -> AppResult {
     AppResult::ChangedState
 }
 
-fn view_today(state: &State) -> AppResult {
+pub fn view_today(state: &State) -> AppResult {
     let entry = state.get_today().unwrap_or("<No Entry>".into());
     println!("{entry}");
 
     AppResult::DidntChangeState
 }
 
-fn edit_entry(state: &mut State) -> AppResult {
-    let dates = HashSet::from_iter(state.entries.keys().map(|a| a.clone()));
-    let date = choose(dates, "Which entry do you want to edit?");
+pub fn edit_entry(config: &Config, opts: &Edit, state: &mut State) -> AppResult {
+    let opts = opts.clone();
+    let config = config.clone();
+
+    let date = match opts.date {
+        Some(date) => date,
+        None => {
+            let dates =
+                HashSet::from_iter(state.entries.keys().map(|a| a.clone()));
+            choose(dates, "Which entry do you want to edit?")
+        }
+    };
+
     let old_content = state.get_entry(&date);
-    if old_content.is_none() {
-        fail!("couldn't get default content");
-    }
-    let new_content = edit(
-        Some(&old_content.clone().unwrap()),
-        ".org",
-        "Press <Enter> to edit",
-    );
+
+    let new_content = match (opts.content, opts.content_path) {
+        (Some(_), Some(_)) => {
+            fail!("can't give both content and content path");
+        }
+        (Some(content), None) => content,
+        (None, Some(content_path)) => {
+            let content = std::fs::read_to_string(&content_path);
+            if let Err(e) = content {
+                fail!("couldn't read content from file {content_path}: {e:?}");
+            }
+            content.unwrap()
+        }
+        (None, None) => {
+            edit(
+                old_content.as_deref(),
+                config.file_type.as_deref().unwrap_or(".md"), 
+                "Press <Enter> to edit",
+            )
+        }
+    };
 
     state.set_entry(&date, &new_content);
 
-    match old_content.unwrap() == new_content {
-        true => AppResult::DidntChangeState,
-        false => AppResult::ChangedState,
+    if old_content.is_some() {
+        if old_content.unwrap() == new_content {
+            return AppResult::DidntChangeState;
+        }
     }
+
+    AppResult::ChangedState
 }
 
-fn change_password(state: &mut State) -> AppResult {
+pub fn change_password(opts: &ChangePassword, state: &mut State) -> AppResult {
+    let opts = opts.clone();
+
+    let new_password = match (opts.new_password, opts.new_password_file) {
+        (Some(_), Some(_)) => {
+            fail!("can't give both new password and new password file");
+        }
+        (Some(new_password), None) => new_password,
+        (None, Some(new_password_file)) => {
+            let new_password = std::fs::read_to_string(&new_password_file);
+            if let Err(e) = new_password {
+                fail!("couldn't read content from file {new_password_file}: {e:?}");
+            }
+            new_password.unwrap()
+        }
+        (None, None) => get_new_password(),
+    };
+
     let old_password = state.password.clone();
-    let new_password = get_new_password();
     state.change_password(&new_password);
 
     match old_password == new_password {
@@ -162,9 +333,18 @@ fn change_password(state: &mut State) -> AppResult {
     }
 }
 
-fn view_entries(state: &State) -> AppResult {
-    let dates: HashSet<Date> = HashSet::from_iter(state.entries.keys().map(|a| a.clone()));
-    let date = choose(dates, "Please choose an entry");
+pub fn view_entries(opts: &View, state: &State) -> AppResult {
+    let opts = opts.clone();
+
+    let date = match opts.date {
+        Some(date) => date,
+        None => {
+            let dates: HashSet<Date> =
+                HashSet::from_iter(state.entries.keys().map(|a| a.clone()));
+            choose(dates, "Please choose an entry")
+        }
+    };
+
     let entry = state.get_entry(&date);
 
     if entry.is_none() {
@@ -176,7 +356,7 @@ fn view_entries(state: &State) -> AppResult {
     AppResult::DidntChangeState
 }
 
-fn list_entries(state: &State) -> AppResult {
+pub fn list_entries(state: &State) -> AppResult {
     let mut keys = state.entries.keys().collect::<Vec<_>>();
     keys.sort();
     for key in keys {

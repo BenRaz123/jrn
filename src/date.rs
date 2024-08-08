@@ -1,6 +1,11 @@
 //! module for the [`Date`] type. Literally only for timestamps. Most code for ser/de[^1] logic.
 //! [^1]: Serialization/Deserialization
 
+use chrono::DateTime;
+use chrono::Local;
+use chrono::NaiveDate;
+use chrono::NaiveDateTime;
+use enum_display::EnumDisplay;
 use chrono::Datelike;
 use serde::Deserialize;
 use serde::Serialize;
@@ -50,18 +55,59 @@ impl Display for Date {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, EnumDisplay)]
 /// The errors [`Date::from_str`] can return
 pub enum DateFromStrError {
+    InvalidTodayMinusFormat,
     /// Does not have two hyphen-minus ('-') characters
     InvalidLength,
     /// Quantities are not numeric
     IsNotNumeric,
+    InvalidDate,
 }
 
 impl FromStr for Date {
     type Err = DateFromStrError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.trim().to_lowercase();
+
+        if s.starts_with("today") {
+            let rest = &s[5..].trim();
+            if rest.is_empty() {
+                return Ok(Self::today());
+            }
+
+            if !rest.starts_with("-") {
+                return Err(DateFromStrError::InvalidTodayMinusFormat);
+            }
+
+            let minus_days = &rest[1..].trim().parse::<u128>();
+
+            if minus_days.is_err() {
+                return Err(DateFromStrError::InvalidTodayMinusFormat);
+            }
+            
+            let delta = chrono::TimeDelta::try_days(minus_days.to_owned().unwrap() as i64);
+
+            if delta.is_none() {
+                return Err(DateFromStrError::InvalidDate);
+            }
+
+            let delta = delta.unwrap();
+
+            let chrono_today: DateTime<Local> = Local::now();
+        
+            let chrono_with_delta = chrono_today.checked_sub_signed(delta);
+
+            if chrono_with_delta.is_none() {
+                return Err(DateFromStrError::InvalidDate);
+            }
+
+            let chrono_with_delta = chrono_with_delta.unwrap();
+
+            return Ok(Self { year: chrono_with_delta.year(), month: chrono_with_delta.month() as u8, day: chrono_with_delta.day() as u8 })
+        }
+
         let items = s.split('-').collect::<Vec<&str>>();
         if items.len() != 3 {
             return Err(DateFromStrError::InvalidLength);
@@ -72,7 +118,13 @@ impl FromStr for Date {
         let day_result = items[2].parse::<u8>();
 
         match (year_result, month_result, day_result) {
-            (Ok(year), Ok(month), Ok(day)) => Ok(Self { year, month, day }),
+            (Ok(year), Ok(month), Ok(day)) => {
+                let chrono_date = NaiveDate::from_ymd_opt(year, month as u32, day as u32);
+                match chrono_date {
+                    None => Err(DateFromStrError::InvalidDate),
+                    Some(_) => Ok(Self {year, month, day})
+                }
+            },
             _ => Err(DateFromStrError::IsNotNumeric),
         }
     }
