@@ -77,7 +77,7 @@ pub struct List {}
 #[argh(subcommand, name = "view")]
 pub struct View {
     #[argh(positional)]
-    /// the date of the entry (In YYYY-MM-DD format)
+    /// the date of the entry (In YYYY-MM-DD format or today-n format)
     pub date: Option<Date>
 }
 
@@ -85,7 +85,7 @@ pub struct View {
 /// Edit entry
 #[argh(subcommand, name = "edit")]
 pub struct Edit {
-    /// the date of the entry (In YYYY-MM-DD format)
+    /// the date of the entry (In YYYY-MM-DD format or today-n format)
     #[argh(positional)]
     pub date: Option<Date>,
 

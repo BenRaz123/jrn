@@ -39,8 +39,8 @@ impl Default for Config {
     fn default() -> Self {
         let password = None;
         let password_file = None;
-        let dont_loop = None;
-        let do_loop = None;
+        let dont_loop = Some(false);
+        let do_loop = Some(false);
         let file_type = Some(".md".into());
         let file_path = Some("./jrn.json".into());
         Self {
