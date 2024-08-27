@@ -224,7 +224,6 @@ pub fn edit_today(config: &Config, opts: &EditToday, state: &mut State) -> AppRe
             let content = state.get_today();
             let new_content =
                 edit(content.as_deref(), &config.file_type.unwrap_or(".md".into()), "Press <Enter> to edit");
-            println!("{new_content}");
             new_content
         }
         (Some(content), None) => content,
