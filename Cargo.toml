@@ -2,7 +2,8 @@
 name = "jrn"
 version = "0.4.7"
 edition = "2021"
-
+description = "a journal app"
+license = "agpl-3.0-or-later"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
