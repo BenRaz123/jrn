@@ -34,7 +34,8 @@ pub struct Arguments {
     #[argh(option, short = 'F')]
     pub file_type: Option<String>,
 
-    /// file path to be used for storing journal (default is "./jrn.json")
+    /// file path to be used for storing journal (default is either 
+    /// "$JRN_JOURNAL" or "./jrn.json")
     #[argh(option, short = 'f')]
     pub file_path: Option<String>,
 

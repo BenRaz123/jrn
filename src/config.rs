@@ -55,6 +55,12 @@ impl Default for Config {
 }
 
 impl Config {
+    fn get_journal_path(default_config: &Self) -> String {
+       match env::var("JRN_JOURNAL") {
+            Ok(file) => { println!("{file}"); return file; },
+            Err(_) => default_config.clone().file_path.expect("always Some(String) if returned by fn Self::get_default_config")
+        }
+    }
     fn get_config_path(args: &Arguments) -> Option<String> {
         let args = args.clone();
 
@@ -84,7 +90,7 @@ impl Config {
 
         None
     }
-    
+
     fn get_default_config(path: Option<&str>) -> Self {
         if path.is_none() {
             return Self::default();
@@ -100,7 +106,7 @@ impl Config {
 
         match tml {
             Err(_) => Self::default(),
-            Ok(tml) => tml
+            Ok(tml) => tml,
         }
     }
 
@@ -111,12 +117,12 @@ impl Config {
 
         let password = match args.password {
             Some(_) => args.password,
-            None => default_config.password,
+            None => default_config.clone().password,
         };
 
         let password_file = match args.password_file {
             Some(_) => args.password_file,
-            None => default_config.password_file,
+            None => default_config.clone().password_file,
         };
 
         let do_loop = match args.do_loop {
@@ -131,12 +137,12 @@ impl Config {
 
         let file_type = match args.file_type {
             Some(_) => args.file_type,
-            None => default_config.file_type,
+            None => default_config.clone().file_type,
         };
 
         let file_path = match args.file_path {
             Some(_) => args.file_path,
-            None => default_config.file_path,
+            None => Some(Self::get_journal_path(&default_config)),
         };
 
         Self {
