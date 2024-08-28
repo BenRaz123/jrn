@@ -57,7 +57,7 @@ impl Default for Config {
 impl Config {
     fn get_journal_path(default_config: &Self) -> String {
        match env::var("JRN_JOURNAL") {
-            Ok(file) => { println!("{file}"); return file; },
+            Ok(file) => file,
             Err(_) => default_config.clone().file_path.expect("always Some(String) if returned by fn Self::get_default_config")
         }
     }
