@@ -1,8 +1,5 @@
 use std::{
-    collections::HashSet,
-    fmt::{write, Debug, Display},
-    path::Path,
-    str::FromStr,
+    collections::HashSet, fmt::{write, Debug, Display}, path::Path, process::exit, str::FromStr
 };
 
 use crate::{
@@ -265,8 +262,7 @@ pub fn edit_entry(config: &Config, opts: &Edit, state: &mut State) -> AppResult 
     let date = match opts.date {
         Some(date) => date,
         None => {
-            let dates =
-                HashSet::from_iter(state.entries.keys().map(|a| a.clone()));
+            let dates = get_dates(&state);
             choose(dates, "Which entry do you want to edit?")
         }
     };
@@ -338,8 +334,11 @@ pub fn view_entries(opts: &View, state: &State) -> AppResult {
     let date = match opts.date {
         Some(date) => date,
         None => {
-            let dates: HashSet<Date> =
-                HashSet::from_iter(state.entries.keys().map(|a| a.clone()));
+            let dates = HashSet::from_iter(state.entries.keys().map(|a| a.clone()));
+            if dates.is_empty() {
+                println!("No entries to view!");
+                exit(0)
+            }
             choose(dates, "Please choose an entry")
         }
     };
@@ -476,4 +475,14 @@ fn get_new_password() -> String {
     }
 
     pass1
+}
+
+fn get_dates(state: &State) -> HashSet<Date>{
+    let state_keys = HashSet::from_iter(state.entries.keys().map(|a| a.clone()));
+    if state_keys.is_empty() {
+        /*TODO Remove me! */ println!("aaa");
+        return HashSet::from([Date::today()]);
+    }
+
+    state_keys
 }
