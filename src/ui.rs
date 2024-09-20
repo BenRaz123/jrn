@@ -178,7 +178,7 @@ pub fn prompt_pathway() -> PathWay {
     ]);
 
     let pathway =
-        choose(pathways, "Welcome to jrn. Please choose a course of action");
+        choose(pathways, "Welcome to jrn. Please choose a course of action", false);
 
     pathway
 }
@@ -263,7 +263,7 @@ pub fn edit_entry(config: &Config, opts: &Edit, state: &mut State) -> AppResult 
         Some(date) => date,
         None => {
             let dates = get_dates(&state);
-            choose(dates, "Which entry do you want to edit?")
+            choose(dates, "Which entry do you want to edit?", true)
         }
     };
 
@@ -339,7 +339,7 @@ pub fn view_entries(opts: &View, state: &State) -> AppResult {
                 println!("No entries to view!");
                 exit(0)
             }
-            choose(dates, "Please choose an entry")
+            choose(dates, "Please choose an entry", true)
         }
     };
 
@@ -425,12 +425,15 @@ fn edit(content: Option<&str>, filetype: &str, message: &str) -> String {
     string.unwrap().into()
 }
 
-fn choose<T: Display + FromStr + Ord>(content: HashSet<T>, message: &str) -> T
+fn choose<T: Display + FromStr + Ord>(content: HashSet<T>, message: &str, reverse: bool) -> T
 where
     <T as FromStr>::Err: Debug,
 {
     let mut content_as_vec = content.into_iter().collect::<Vec<T>>();
     content_as_vec.sort();
+    if reverse {
+        content_as_vec.reverse();
+    }
     let content = content_as_vec.into_iter().map(|x| x.to_string());
     let question = Question::select(message)
         .message(message)
