@@ -1,6 +1,6 @@
 [package]
 name = "jrn"
-version = "0.4.11"
+version = "0.4.12"
 edition = "2021"
 description = "a journal app"
 license = "AGPL-3.0-or-later"

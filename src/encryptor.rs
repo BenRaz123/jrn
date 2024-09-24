@@ -49,7 +49,9 @@ pub trait Encryptor {
         key: [u8; 32],
         entry: &'a EncryptedEntry,
     ) -> (Date, String);
+    /// make a salt for a key-derivation function
     fn make_kdf_salt(&self) -> [u8; 32];
+    /// generate a key for encryption
     fn gen_key<'a>(&self, password: &'a str, kdf_salt: [u8; 32]) -> [u8; 32];
     /// Provided. Encrypt journal state.
     fn encrypt_journal<'a>(&self, journal: &'a State) -> EncryptedJournal {

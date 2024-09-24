@@ -1,15 +1,29 @@
+//! module for file-based configuration
+
 use std::{env, path::Path};
 
 use crate::cli::Arguments;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// a configuration file
 pub struct Config {
+    /// the password
     pub password: Option<String>,
+    /// the file in which to find a password
+    /// NOTE:
+    /// If [`Config::password`] and this option are both set, an error will be 
+    /// thrown
     pub password_file: Option<String>,
+    /// whether to force no looping. NOTE: `None` and `Some(false)` will be 
+    /// treated the same.
     pub dont_loop: Option<bool>,
+    /// whether to force no looping. NOTE: `None` and `Some(false)` will be
+    /// treated the same.
     pub do_loop: Option<bool>,
+    /// the file type for `$EDITOR`
     pub file_type: Option<String>,
+    /// the path for the data file
     pub file_path: Option<String>,
 }
 
@@ -109,7 +123,9 @@ impl Config {
             Ok(tml) => tml,
         }
     }
-
+    
+    /// gets configuration to be used by first checking command line arguments,
+    /// then the configuration provided, and then finally the default config.
     pub fn get_config(args: &Arguments) -> Self {
         let args = args.clone();
         let path = Self::get_config_path(&args);

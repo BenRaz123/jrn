@@ -58,11 +58,14 @@ impl Display for Date {
 #[derive(Debug, EnumDisplay)]
 /// The errors [`Date::from_str`] can return
 pub enum DateFromStrError {
+    /// dates can be constructed in the form of `today-<n>` where `<n>` is a
+    /// number of days. If the format is incorrect, this error will be returned
     InvalidTodayMinusFormat,
-    /// Does not have two hyphen-minus ('-') characters
+    /// Does not have two hyphen-minus ('-') characters (YYYY-MM-DD format)
     InvalidLength,
-    /// Quantities are not numeric
+    /// Quantities are not numeric (YYYY-MM-DD format)
     IsNotNumeric,
+    /// The Date is invalid
     InvalidDate,
 }
 

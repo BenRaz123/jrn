@@ -1,3 +1,5 @@
+//! functions for interactive ui
+
 use std::{
     collections::HashSet, fmt::{write, Debug, Display}, path::Path, process::exit, str::FromStr
 };
@@ -15,30 +17,45 @@ use std::cmp::Ord;
 
 const MASK_CHAR: char = '*';
 
+/// Result of running app (returned after a full prompt cycle (root prompt -> action prompt -> root
+/// prompt))
 pub enum AppResult {
+    /// State was changed (modifying/creating entries or changing password)
     ChangedState,
+    /// State was viewed, not changed
     DidntChangeState,
+    /// App was quit
     Quit,
 }
 
 #[derive(EnumDisplay, Debug, FromStr, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[enum_display(case = "Title")]
 #[enumeration(rename_all = "PascalCase")]
+/// app pathways
 pub enum PathWay {
     #[enumeration(rename = "Change Password")]
+    /// change the user password
     ChangePassword,
+    /// list all entries in chronological order
     List,
+    /// view a given entry
     View,
+    /// edit a given entry
     Edit,
     #[enumeration(rename = "View Today")]
+    /// view today's entry
     ViewToday,
     #[enumeration(rename = "Edit Today")]
+    /// edit today's entry
     EditToday,
+    /// quit the application
     Quit,
 }
 
 #[derive(Debug, EnumDisplay)]
+/// how converting a [`PathWay`] to a [`SubCommand`] could fail
 pub enum SubCommandFromPathWayError {
+    /// [`PathWay::Quit`] has no equivalent in [`SubCommand`]
     QuitVariantWasUsed,
 }
 
@@ -58,7 +75,7 @@ impl TryFrom<PathWay> for SubCommand {
         }
     }
 }
-/// hello
+/// initialize memory
 pub fn init<E: Encryptor>(config: &Config, e: &E) -> State {
     let config = config.clone();
     let jrn_path = config.file_path.as_deref().unwrap_or("./jrn.json");
@@ -120,6 +137,14 @@ pub fn init<E: Encryptor>(config: &Config, e: &E) -> State {
     state
 }
 
+/// determine whether the UI should loop.
+/// ## Logic
+/// - If the config (command line arguments and config file information) contains
+/// the [`Config::do_loop`] flag and it is set to `true`, then do loop.
+/// - If the config contains the [`Config::dont_loop`] flag and it is set to 
+/// `true`, then don't loop
+/// - If there is a subcommand specified, don't loop the program.
+/// Each condition is evaluated if the conditions before it haven't been true.
 pub fn should_loop(config: &Config, subcommand: &Option<SubCommand>) -> bool {
     let config = config.clone();
     if let Some(do_loop) = config.do_loop {
@@ -139,6 +164,7 @@ pub fn should_loop(config: &Config, subcommand: &Option<SubCommand>) -> bool {
     true
 }
 
+/// runs the app, looping if requested (see [`should_loop()`])
 pub fn app(config: &Config, subcommand: Option<SubCommand>, state: &mut State) -> AppResult {
     let should_loop = should_loop(config, &subcommand);
     if should_loop {
@@ -166,6 +192,8 @@ pub fn app(config: &Config, subcommand: Option<SubCommand>, state: &mut State) -
     }
 }
 
+/// asks the user what course of action (see [`PathWay`]) they would like to
+/// take. not triggered if a subcommand has been supplied.
 pub fn prompt_pathway() -> PathWay {
     let pathways: HashSet<PathWay> = HashSet::from([
         PathWay::ChangePassword,
@@ -208,6 +236,8 @@ fn _app(config: &Config, subcommand: Option<SubCommand>, state: &mut State) -> A
     }
 }
 
+/// prompts the user to edit today's entry. will pull up an `$EDITOR` if no pre
+/// determined content has been given.
 pub fn edit_today(config: &Config, opts: &EditToday, state: &mut State) -> AppResult {
     let opts = opts.clone();
     let config = config.clone();
@@ -248,6 +278,8 @@ pub fn edit_today(config: &Config, opts: &EditToday, state: &mut State) -> AppRe
     AppResult::ChangedState
 }
 
+/// view today's entry. will print out "\<No Entry>" in the case of no entries
+/// for today
 pub fn view_today(state: &State) -> AppResult {
     let entry = state.get_today().unwrap_or("<No Entry>".into());
     println!("{entry}");
@@ -255,6 +287,8 @@ pub fn view_today(state: &State) -> AppResult {
     AppResult::DidntChangeState
 }
 
+/// edit any entry. prompts for a date if none are given. pulls up `$EDITOR` if
+/// no content is given.
 pub fn edit_entry(config: &Config, opts: &Edit, state: &mut State) -> AppResult {
     let opts = opts.clone();
     let config = config.clone();
@@ -301,6 +335,7 @@ pub fn edit_entry(config: &Config, opts: &Edit, state: &mut State) -> AppResult 
     AppResult::ChangedState
 }
 
+/// changes password. prompts for a new password if one isn't given.
 pub fn change_password(opts: &ChangePassword, state: &mut State) -> AppResult {
     let opts = opts.clone();
 
@@ -328,6 +363,7 @@ pub fn change_password(opts: &ChangePassword, state: &mut State) -> AppResult {
     }
 }
 
+/// view any entry. prompts for a date if no date is given.
 pub fn view_entries(opts: &View, state: &State) -> AppResult {
     let opts = opts.clone();
 
@@ -354,6 +390,7 @@ pub fn view_entries(opts: &View, state: &State) -> AppResult {
     AppResult::DidntChangeState
 }
 
+/// lists all entries by date.
 pub fn list_entries(state: &State) -> AppResult {
     let mut keys = state.entries.keys().collect::<Vec<_>>();
     keys.sort();

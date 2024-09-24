@@ -1,3 +1,4 @@
+//! module for command line arguments
 use argh::FromArgs;
 
 use crate::date::Date;
@@ -46,12 +47,19 @@ pub struct Arguments {
 
 #[derive(FromArgs, PartialEq, Debug, Clone)]
 #[argh(subcommand)]
+/// An optional subcommand with optional information
 pub enum SubCommand {
+    /// Intent to change password as well as the new password (optional)
     ChangePassword(ChangePassword),
+    /// Intent to list entries (no options)
     List(List),
+    /// Intent to view entries as well as the index of the entry (optional)
     View(View),
+    /// Intent to edit entries as well as the index of the entry to edit and the new content (both optional)
     Edit(Edit),
+    /// The intent to view today's entry (no options)
     ViewToday(ViewToday),
+    /// The intent to edit today's entry as well as the new content (optional) 
     EditToday(EditToday)
 }
 

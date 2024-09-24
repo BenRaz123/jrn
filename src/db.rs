@@ -15,9 +15,14 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
+/// representation of an encrypted journal. middle stage between a 
+/// [`StoredJournal`] and a [`State`]
 pub struct EncryptedJournal {
+    /// the hash of the password
     pub password_hash: String,
+    /// the salt used for the key derivation function
     pub kdf_salt: [u8; 32],
+    /// the set of encrypted entries
     pub entries: HashSet<EncryptedEntry>,
 }
 
@@ -42,15 +47,26 @@ pub struct EncryptedEntry {
     /// Encrypted digest of journal entry
     pub digest: Vec<u8>,
 }
+
 #[derive(Hash, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+/// representation of an [`EncryptedEntry`] in JSON (exists in order to make
+/// the bytes Base64 encoded)
 pub struct StoredEntry {
+    /// the date, represented as a timestamp
     pub date: Date,
+    /// the nonce for the encryption function, stored in Base64.
     pub nonce: String,
+    /// the encrypted digest, stored in Base64.
     pub digest: String,
 }
+
 #[derive(Debug)]
+/// How getting a `[u8; N]`/`Vec<u8>` could go wrong
 pub enum FromBase64Error {
+    /// the base64 string contains characters other than [the standard Base64
+    /// alphabet](https://docs.rs/base64/latest/base64/alphabet/constant.STANDARD.html)
     NotValidBase64,
+    /// the decoded Base64 is too long or too short
     InvalidLength,
 }
 
@@ -151,6 +167,7 @@ pub enum LoadError {
     NotAccessible,
     /// the file could not be parsed
     ParseError,
+    /// the Base64 was incorrect (see [`FromBase64Error`])
     FromBase64Error(FromBase64Error),
     /// the password given was incorrect and the file could not be unencrypted
     IncorrectPassword,
